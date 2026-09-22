@@ -1,13 +1,14 @@
 ﻿using System.Drawing;
 using System.Drawing.Imaging;
+using System.Drawing.Drawing2D;
 using CTA.Models;
 
 namespace CTA.Services;
 
 public class DiplomaService
 {
-    private readonly Dictionary<string, TextElementSettings> _settings;
     private readonly string _templatePath;
+    private readonly Dictionary<string, TextElementSettings> _settings;
 
     public DiplomaService(
         string templatePath,
@@ -20,241 +21,191 @@ public class DiplomaService
     public Bitmap Generate(StudentRecord student)
     {
         var image = new Bitmap(_templatePath);
+
         using var graphics = Graphics.FromImage(image);
 
         graphics.TextRenderingHint =
             System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
 
+        graphics.SmoothingMode =
+            SmoothingMode.AntiAlias;
+
         using var brush = new SolidBrush(Color.Black);
 
-        // Шрифты
-        using var fontPlace = new Font(
+        // =========================
+        // МЕСТО
+        // =========================
+
+        var placeSettings = _settings["Место"];
+
+        using var placeFont = new Font(
             "Times New Roman",
-            60);
+            (float)placeSettings.FontSize);
 
-        using var fontAward = new Font(
-            "Times New Roman",
-            30);
-
-        using var fontContest = new Font(
-            "Times New Roman",
-            45);
-
-        using var fontName = new Font(
-            "Times New Roman",
-            40);
-
-        using var fontTeacher = new Font(
-            "Times New Roman",
-            35);
-
-        using var fontSmall = new Font(
-            "Times New Roman",
-            20);
-
-        // Место
-        var place = student.Place;
-
-        if (place == "1")
+        var placeText = student.Place switch
         {
-            graphics.DrawString(
-                "I",
-                fontPlace,
-                brush,
-                680,
-                315);
+            "1" => "I",
+            "2" => "II",
+            _ => "III"
+        };
 
-            DrawCenteredText(
-                graphics,
-                "ЖЕҢІМПАЗЫ",
-                fontAward,
-                620,
-                image.Width,
-                brush);
-        }
-        else if (place == "2")
-        {
-            graphics.DrawString(
-                "II",
-                fontPlace,
-                brush,
-                680,
-                315);
+        DrawText(
+            graphics,
+            placeText,
+            placeFont,
+            placeSettings,
+            brush);
 
-            DrawCenteredText(
-                graphics,
-                "ЖҮЛДЕГЕРІ",
-                fontAward,
-                620,
-                image.Width,
-                brush);
-        }
-        else
-        {
-            graphics.DrawString(
-                "III",
-                fontPlace,
-                brush,
-                680,
-                315);
 
-            DrawCenteredText(
-                graphics,
-                "ЖҮЛДЕГЕРІ",
-                fontAward,
-                620,
-                image.Width,
-                brush);
-        }
+        // =========================
+        // НАГРАДА
+        // =========================
 
-        // Название конкурса
+        var awardSettings = _settings["Награда"];
+
+        using var awardFont = new Font(
+            "Times New Roman",
+            (float)awardSettings.FontSize);
+
+        var awardText =
+            student.Place == "1"
+                ? "ЖЕҢІМПАЗЫ"
+                : "ЖҮЛДЕГЕРІ";
+
+        DrawCenteredText(
+            graphics,
+            awardText,
+            awardFont,
+            awardSettings,
+            image.Width,
+            brush);
+
+
+        // =========================
+        // НАЗВАНИЕ КОНКУРСА
+        // =========================
+
         if (!string.IsNullOrWhiteSpace(student.Contest))
         {
             var contestSettings =
                 _settings["Название конкурса"];
 
-            using var contestFont =
-                new Font(
-                    "Times New Roman",
-                    (float)contestSettings.FontSize);
+            using var contestFont = new Font(
+                "Times New Roman",
+                (float)contestSettings.FontSize);
 
-            DrawCenteredScaledText(
+            DrawText(
                 graphics,
                 student.Contest,
                 contestFont,
-                (float)contestSettings.Y,
-                image.Width,
-                (float)contestSettings.WidthScale,
-                (float)contestSettings.HeightScale,
+                contestSettings,
                 brush);
         }
 
-        // ФИО ученика
+
+        // =========================
+        // ФИО УЧЕНИКА
+        // =========================
+
         var nameSettings =
             _settings["ФИО ученика"];
 
-        using var nameFont =
-            new Font(
-                "Times New Roman",
-                (float)nameSettings.FontSize);
+        using var nameFont = new Font(
+            "Times New Roman",
+            (float)nameSettings.FontSize);
 
-        DrawCenteredScaledText(
+        DrawText(
             graphics,
             student.FullName,
             nameFont,
-            (float)nameSettings.Y,
-            image.Width,
-            (float)nameSettings.WidthScale,
-            (float)nameSettings.HeightScale,
+            nameSettings,
             brush);
 
-        // Учитель
+
+        // =========================
+        // ФИО ПРЕПОДАВАТЕЛЯ
+        // =========================
+
         var teacherSettings =
             _settings["ФИО преподавателя"];
 
-        using var teacherFont =
-            new Font(
-                "Times New Roman",
-                (float)teacherSettings.FontSize);
+        using var teacherFont = new Font(
+            "Times New Roman",
+            (float)teacherSettings.FontSize);
 
-        DrawScaledText(
+        DrawText(
             graphics,
             student.Teacher,
             teacherFont,
-            (float)teacherSettings.X,
-            (float)teacherSettings.Y,
-            (float)teacherSettings.WidthScale,
-            (float)teacherSettings.HeightScale,
+            teacherSettings,
             brush);
-        
-        // Регистрационный номер
-        var registrationNumber =
-            student.RegistrationNumber.PadLeft(7, '0');
+
+
+        // =========================
+        // РЕГИСТРАЦИОННЫЙ НОМЕР
+        // =========================
 
         var registrationSettings =
             _settings["Регистрационный номер"];
 
-        using var registrationFont =
-            new Font(
-                "Times New Roman",
-                (float)registrationSettings.FontSize);
+        using var registrationFont = new Font(
+            "Times New Roman",
+            (float)registrationSettings.FontSize);
 
-        DrawScaledText(
+        var registrationNumber =
+            student.RegistrationNumber.PadLeft(7, '0');
+
+        DrawText(
             graphics,
             $"№-{registrationNumber}",
             registrationFont,
-            (float)registrationSettings.X,
-            (float)registrationSettings.Y,
-            (float)registrationSettings.WidthScale,
-            (float)registrationSettings.HeightScale,
+            registrationSettings,
             brush);
 
-        // Учебный год
+
+        // =========================
+        // УЧЕБНЫЙ ГОД
+        // =========================
+
         var yearSettings =
             _settings["Учебный год"];
 
-        using var yearFont =
-            new Font(
-                "Times New Roman",
-                (float)yearSettings.FontSize);
+        using var yearFont = new Font(
+            "Times New Roman",
+            (float)yearSettings.FontSize);
 
-        DrawScaledText(
+        DrawText(
             graphics,
             "2026-2027 оқу жылы",
             yearFont,
-            (float)yearSettings.X,
-            (float)yearSettings.Y,
-            (float)yearSettings.WidthScale,
-            (float)yearSettings.HeightScale,
+            yearSettings,
             brush);
+
+
         return image;
     }
 
-    private static void DrawCenteredText(
+
+    // =========================================================
+    // ОБЫЧНЫЙ ТЕКСТ
+    // =========================================================
+
+    private static void DrawText(
         Graphics graphics,
         string text,
         Font font,
-        float y,
-        int imageWidth,
-        Brush brush)
-    {
-        var size = graphics.MeasureString(text, font);
-
-        var x = (imageWidth - size.Width) / 2;
-
-        graphics.DrawString(
-            text,
-            font,
-            brush,
-            x,
-            y);
-    }
-
-    public static void SavePdf(
-        Bitmap image,
-        string path)
-    {
-        image.Save(
-            path,
-            ImageFormat.Png);
-    }
-    private static void DrawScaledText(
-        Graphics graphics,
-        string text,
-        Font font,
-        float x,
-        float y,
-        float widthScale,
-        float heightScale,
+        TextElementSettings settings,
         Brush brush)
     {
         var state = graphics.Save();
 
-        graphics.TranslateTransform(x, y);
+        graphics.TranslateTransform(
+            (float)settings.X,
+            (float)settings.Y);
 
         graphics.ScaleTransform(
-            widthScale,
-            heightScale);
+            (float)settings.WidthScale,
+            (float)settings.HeightScale);
 
         graphics.DrawString(
             text,
@@ -265,32 +216,98 @@ public class DiplomaService
 
         graphics.Restore(state);
     }
-    private static void DrawCenteredScaledText(
+
+
+    // =========================================================
+    // ЦЕНТРИРОВАННЫЙ ТЕКСТ
+    // =========================================================
+
+    private static void DrawCenteredText(
         Graphics graphics,
         string text,
         Font font,
-        float y,
+        TextElementSettings settings,
         int imageWidth,
-        float widthScale,
-        float heightScale,
         Brush brush)
     {
         var size = graphics.MeasureString(text, font);
 
         var scaledWidth =
-            size.Width * widthScale;
+            size.Width * settings.WidthScale;
 
         var x =
-            (imageWidth - scaledWidth) / 2;
+            settings.X;
 
-        DrawScaledText(
-            graphics,
+        // Если X = 800, считаем его центром.
+        // Это позволяет сохранить привычное положение
+        // награды в центре диплома.
+        if (x == 800)
+        {
+            x =
+                (imageWidth - scaledWidth) / 2;
+        }
+
+        var state = graphics.Save();
+
+        graphics.TranslateTransform(
+            (float)x,
+            (float)settings.Y);
+
+        graphics.ScaleTransform(
+            (float)settings.WidthScale,
+            (float)settings.HeightScale);
+
+        graphics.DrawString(
             text,
             font,
-            x,
-            y,
-            widthScale,
-            heightScale,
-            brush);
+            brush,
+            0,
+            0);
+
+        graphics.Restore(state);
+    }
+
+
+    // =========================================================
+    // ПОЛУЧИТЬ РАЗМЕР ТЕКСТА
+    // =========================================================
+
+    public static SizeF MeasureText(
+        string text,
+        float fontSize,
+        float widthScale,
+        float heightScale)
+    {
+        using var bitmap =
+            new Bitmap(1, 1);
+
+        using var graphics =
+            Graphics.FromImage(bitmap);
+
+        using var font =
+            new Font(
+                "Times New Roman",
+                fontSize);
+
+        var size =
+            graphics.MeasureString(text, font);
+
+        return new SizeF(
+            size.Width * widthScale,
+            size.Height * heightScale);
+    }
+
+
+    // =========================================================
+    // PDF
+    // =========================================================
+
+    public static void SavePdf(
+        Bitmap image,
+        string path)
+    {
+        // Пока оставляем временное сохранение.
+        // Настоящий PDF подключим следующим этапом.
+        image.Save(path, ImageFormat.Png);
     }
 }
